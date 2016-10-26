@@ -92,7 +92,7 @@ class DeflateHTTPHandler(SimpleHTTPRequestHandler):
 				content = self.zlib_encode(content)
 				encoding = 'zlib'
 			elif 'deflate' in self.headers['accept-encoding']:
-				content = self.zlib_encode(content)
+				content = self.deflate_encode(content)
 				encoding = 'deflate'
 
 		self.send_response(200)
