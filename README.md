@@ -1,12 +1,12 @@
 DeflateHTTPServer
 ====================
 
-This is a modified SimpleHTTPServer with added deflate and multithreading.
+This is a modified SimpleHTTPServer with added deflate and multiprocessing 
 
 ## Usage
 
 ````
-python DeflateHTTPServer.py
+python DeflateHTTPServer.py [path_to_serve]
 ````
 
 This will start a on port 8000. You should see this in your terminal:
@@ -17,5 +17,5 @@ This will start a on port 8000. You should see this in your terminal:
 
 To run on a different port use:
 ````
-python DeflateHTTPServer.py 8080
+python DeflateHTTPServer.py [path_to_serve] 8080
 ````

@@ -18,17 +18,18 @@
 import sys
 import os
 import zlib
-import SocketServer
 from BaseHTTPServer import HTTPServer
 from SimpleHTTPServer import SimpleHTTPRequestHandler
-from SocketServer import ThreadingMixIn
+from multiprocessing import Process, current_process, cpu_count
 
-class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
-    """Handle requests in a separate thread."""
-
+def note(format, *args):
+    sys.stderr.write('[%s]\t%s\n' % (current_process().name, format%args))
 
 class DeflateHTTPHandler(SimpleHTTPRequestHandler):
 	""" Adds compressed http payload"""
+
+	def log_message(self, format, *args):
+		note(format, *args)
 
 	def zlib_encode(self, content):
 		zlib_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS)
@@ -106,24 +107,49 @@ class DeflateHTTPHandler(SimpleHTTPRequestHandler):
 		f.close();
 		return content
 
+def serve_forever(server):
+	note('starting server process ...')
+	try:
+		server.serve_forever(poll_interval=0.5)
+	except KeyboardInterrupt:
+		note('[DeflateHTTPServer] ^C received, shutting down...')
+		raise
+
+def runpool(server, number_of_processes):
+	# create child processes to act as workers
+	for i in range(number_of_processes-1):
+		p = Process(target=serve_forever, args=(server,))
+		p.daemon = True
+		p.start()
+
+	# main process also acts as a worker
+	serve_forever(server)
+
 def run(port):
 	try:
-		ThreadedHTTPServer.allow_reuse_address = True
-		server = ThreadedHTTPServer(('', port), DeflateHTTPHandler)
+		HTTPServer.allow_reuse_address = True
+		server = HTTPServer(('', port), DeflateHTTPHandler)
 		sockname = server.socket.getsockname()
 		print '[DeflateHTTPServer] started on', sockname[0], 'port', sockname[1], '...'
 
+
+		ccount = cpu_count()
+		if ccount > 4: ccount = 4
+		runpool(server, ccount)
 #       Wait forever for incoming http requests
-		server.serve_forever(poll_interval=0.5)
+		serve_forever(server)
 
 	except KeyboardInterrupt:
-		print '[DeflateHTTPServer] ^C received, shutting down...'
+		note('[DeflateHTTPServer] ^C received, shutting down...')
 		server.shutdown()
 		server.server_close()
 
 if __name__ == '__main__':
+	path = '.'
+	port = 8000
 	if sys.argv[1:]:
-		port = int(sys.argv[1])
-	else:
-		port = 8000
+		path = sys.argv[1]
+		if sys.argv[2:]:
+			port = int(sys.argv[2])
+	os.chdir(path)
 	run(port)
