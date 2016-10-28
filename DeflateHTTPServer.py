@@ -136,8 +136,6 @@ def run(port):
 		ccount = cpu_count()
 		if ccount > 4: ccount = 4
 		runpool(server, ccount)
-#       Wait forever for incoming http requests
-		serve_forever(server)
 
 	except KeyboardInterrupt:
 		note('[DeflateHTTPServer] ^C received, shutting down...')
