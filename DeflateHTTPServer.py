@@ -85,7 +85,7 @@ class DeflateHTTPHandler(SimpleHTTPRequestHandler):
 		content = f.read()
 		encoding = None
 
-		if (ctype.startswith('text/') or ctype.startswith('application/')) and 'accept-encoding' in self.headers:
+		if (ctype.startswith('text/') or ctype.startswith('application/') or ctype.startswith('image/svg+xml')) and 'accept-encoding' in self.headers:
 			if 'gzip' in self.headers['accept-encoding']:
 				content = self.gzip_encode(content)
 				encoding = 'gzip'
@@ -134,7 +134,7 @@ def run(port):
 
 
 		ccount = cpu_count()
-		if ccount > 4: ccount = 4
+		if ccount > 8: ccount = ccount/2 
 		runpool(server, ccount)
 
 	except KeyboardInterrupt:
