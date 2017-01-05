@@ -18,9 +18,19 @@
 import sys
 import os
 import zlib
+import argparse
 from BaseHTTPServer import HTTPServer
 from SimpleHTTPServer import SimpleHTTPRequestHandler
 from multiprocessing import Process, current_process, cpu_count
+from SocketServer import ThreadingMixIn
+
+parser = argparse.ArgumentParser()
+parser.add_argument('www_root', help='directory/path to serve')
+parser.add_argument('-port', default=8000, help='port number, default 8000')
+parser.add_argument('-mode', default='mt', help='therading mode: mt - multithreaded, mp - multiprocessing, default multithreading')
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    """Handle requests in a separate thread."""
 
 def note(format, *args):
     sys.stderr.write('[%s]\t%s\n' % (current_process().name, format%args))
@@ -125,12 +135,13 @@ def runpool(server, number_of_processes):
 	# main process also acts as a worker
 	serve_forever(server)
 
-def run(port):
+# Multi-processing server
+def run_mp(port):
 	try:
 		HTTPServer.allow_reuse_address = True
 		server = HTTPServer(('', port), DeflateHTTPHandler)
 		sockname = server.socket.getsockname()
-		print '[DeflateHTTPServer] started on', sockname[0], 'port', sockname[1], '...'
+		note('[MultiProcessingDeflateHTTPServer] started on %s port %s ...', sockname[0], sockname[1])
 
 
 		ccount = cpu_count()
@@ -138,16 +149,40 @@ def run(port):
 		runpool(server, ccount)
 
 	except KeyboardInterrupt:
-		note('[DeflateHTTPServer] ^C received, shutting down...')
+		note('[MultiProcessingDeflateHTTPServer] ^C received, shutting down...')
 		server.shutdown()
 		server.server_close()
 
+# Multi-threaded server
+def run_mt(port):
+    try:
+        ThreadedHTTPServer.allow_reuse_address = True
+        server = ThreadedHTTPServer(('', port), DeflateHTTPHandler)
+        sockname = server.socket.getsockname()
+        note('[MultiThreadedDeflateHTTPServer] started on %s port %s ...', sockname[0], sockname[1])
+
+#       Wait forever for incoming http requests
+        server.serve_forever(poll_interval=0.5)
+
+    except KeyboardInterrupt:
+        note('[MultiThreadedDeflateHTTPServer] ^C received, shutting down...')
+        server.shutdown()
+        server.server_close()
+
+def main(args):
+	for arg in ('www_root', 'port', 'mode'):
+		if not getattr(args, arg, None):
+			print >> sys.stderr, '{} arg must not be empty'.format(arg)
+			return -1
+	os.chdir(args.www_root)
+
+	if args.mode == 'mt':
+		run_mt(int(args.port))
+	elif args.mode == 'mp':
+		run_mp(int(args.port))
+	else:
+		note('Unsupported server type: %s requested, fallback to MultiThreaded type...', args.mode)
+		run_mt(int(args.port))
+
 if __name__ == '__main__':
-	path = '.'
-	port = 8000
-	if sys.argv[1:]:
-		path = sys.argv[1]
-		if sys.argv[2:]:
-			port = int(sys.argv[2])
-	os.chdir(path)
-	run(port)
+	sys.exit(main(parser.parse_args()))
